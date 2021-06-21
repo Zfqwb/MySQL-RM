@@ -2928,13 +2928,733 @@ INSERT INTO account VALUES (3,'王五',2000);
 ## day04
 
 ###  01存储引擎
+
+#### 查询数据库支持的存储引擎
+
+```
+/*
+	查询数据库支持的存储引擎
+	标准语法
+		SHOW ENGINES;
+*/
+```
+
+#### 查询某个数据库中所有数据表的存储引擎
+
+```
+/*
+	查询某个数据库中所有数据表的存储引擎
+	标准语法
+		SHOW TABLE STATUS FROM 数据库名称;
+*/
+```
+
+
+
+
+#### 查询某个数据库中某个表的存储引擎
+
+```
+/*
+	查询某个数据库中某个表的存储引擎
+	标准语法
+		SHOW TABLE STATUS FROM 数据库名称 WHERE NAME = '数据表名称';
+*/
+```
+
+#### 创建数据表指定存储引擎
+
+```
+/*
+	创建数据表指定存储引擎
+	标准语法
+		CREATE TABLE 表名(
+			列名,数据类型,
+			...
+		)ENGINE = 引擎名称;
+*/
+```
+
+#### 修改数据表的存储引擎
+
+```
+/*
+	修改数据表的存储引擎
+	标准语法
+		ALTER TABLE 表名 ENGINE = 引擎名称;
+*/
+```
+
+-- 修改engine_test表的引擎为InnoDB
+
+```
+ALTER TABLE engine_test ENGINE = INNODB;
+```
+
+-- 查询engine_test表的存储引擎
+
+```
+SHOW TABLE STATUS FROM db11 WHERE NAME ='engine_test';
+```
+
+
+
 ###  02索引
+
+#### 索引数据准备
+
+```
+-- 创建db12数据库
+CREATE DATABASE db12;
+
+-- 使用db12数据库
+USE db12;
+
+-- 创建student表
+CREATE TABLE student(
+	id INT PRIMARY KEY AUTO_INCREMENT,
+	NAME VARCHAR(10),
+	age INT,
+	score INT
+);
+-- 添加数据
+INSERT INTO student VALUES (NULL,'张三',23,98),(NULL,'李四',24,95),
+(NULL,'王五',25,96),(NULL,'赵六',26,94),(NULL,'周七',27,99);
+```
+
+#### 创建和查询索引
+
+##### 创建索引
+
+```
+/*
+	创建索引
+	标准语法
+		CREATE [UNIQUE|FULLTEXT] INDEX 索引名称
+		[USING 索引类型]  -- 默认是B+TREE
+		ON 表名(列名...);
+*/
+```
+
+-- 为student表中的name列创建一个普通索引
+
+```
+CREATE INDEX idx_name ON student(NAME);
+```
+
+-- 为student表中的age列创建一个唯一索引
+
+```
+CREATE UNIQUE INDEX idx_age ON student(age);
+```
+
+##### 查询索引
+
+```
+/*
+	查询索引
+	标准语法
+		SHOW INDEX FROM 表名;
+*/
+```
+
+-- 查询student表中的索引
+
+```
+SHOW INDEX FROM student;
+```
+
+#### ALTER添加索引
+
+```
+/*
+	ALTER添加索引
+	-- 普通索引
+	ALTER TABLE 表名 ADD INDEX 索引名称(列名);
+
+    -- 组合索引
+    ALTER TABLE 表名 ADD INDEX 索引名称(列名1,列名2,...);
+    
+    -- 主键索引
+    ALTER TABLE 表名 ADD PRIMARY KEY(主键列名); 
+    
+    -- 外键索引(添加外键约束，就是外键索引)
+    ALTER TABLE 表名 ADD CONSTRAINT 外键名 FOREIGN KEY (本表外键列名) REFERENCES 主表名(主键列名);
+    
+    -- 唯一索引
+    ALTER TABLE 表名 ADD UNIQUE 索引名称(列名);
+    
+    -- 全文索引
+    ALTER TABLE 表名 ADD FULLTEXT 索引名称(列名);
+
+*/
+
+```
+
+-- 为student表中name列添加全文索引
+
+```
+ALTER TABLE student ADD FULLTEXT idx_fulltext_name(NAME);
+```
+
+-- 查询student表的索引
+
+```
+SHOW INDEX FROM student;
+```
+
+#### 删除索引
+
+```
+/*
+	删除索引
+	标准语法
+		DROP INDEX 索引名称 ON 表名;
+*/
+```
+
+-- 删除idx_name索引
+
+```
+DROP INDEX idx_name ON student;
+```
+
+#### 索引的效率测试
+
+```
+-- 创建product商品表
+CREATE TABLE product(
+	id INT PRIMARY KEY AUTO_INCREMENT,  -- 商品id
+	NAME VARCHAR(10),		    -- 商品名称
+	price INT                           -- 商品价格
+);
+
+-- 定义存储函数，生成长度为10的随机字符串并返回
+DELIMITER $
+
+CREATE FUNCTION rand_string() 
+RETURNS VARCHAR(255)
+BEGIN
+	DECLARE big_str VARCHAR(100) DEFAULT 'abcdefghijklmnopqrstuvwxyzABCDEFGHIGKLMNOPQRSTUVWXYZ';
+	DECLARE small_str VARCHAR(255) DEFAULT '';
+	DECLARE i INT DEFAULT 1;
+	
+	WHILE i <= 10 DO
+		SET small_str =CONCAT(small_str,SUBSTRING(big_str,FLOOR(1+RAND()*52),1));
+		SET i=i+1;
+	END WHILE;
+	
+	RETURN small_str;
+END$
+
+DELIMITER ;
+
+
+
+-- 定义存储过程，添加100万条数据到product表中
+DELIMITER $
+
+CREATE PROCEDURE pro_test()
+BEGIN
+	DECLARE num INT DEFAULT 1;
+	
+	WHILE num <= 1000000 DO
+		INSERT INTO product VALUES (NULL,rand_string(),num);
+		SET num = num + 1;
+	END WHILE;
+END$
+
+DELIMITER ;
+
+-- 调用存储过程
+CALL pro_test();
+
+
+-- 查询总记录条数
+SELECT COUNT(*) FROM product;
+
+
+
+-- 查询product表的索引
+SHOW INDEX FROM product;
+
+-- 查询name为OkIKDLVwtG的数据   (0.049)
+SELECT * FROM product WHERE NAME='OkIKDLVwtG';
+
+-- 通过id列查询OkIKDLVwtG的数据  (1毫秒)
+SELECT * FROM product WHERE id=999998;
+
+-- 为name列添加索引
+ALTER TABLE product ADD INDEX idx_name(NAME);
+
+-- 查询name为OkIKDLVwtG的数据   (0.001)
+SELECT * FROM product WHERE NAME='OkIKDLVwtG';
+
+
+/*
+	范围查询
+*/
+-- 查询价格为800~1000之间的所有数据 (0.052)
+SELECT * FROM product WHERE price BETWEEN 800 AND 1000;
+
+/*
+	排序查询
+*/
+-- 查询价格为800~1000之间的所有数据,降序排列  (0.083)
+SELECT * FROM product WHERE price BETWEEN 800 AND 1000 ORDER BY price DESC;
+
+-- 为price列添加索引
+ALTER TABLE product ADD INDEX idx_price(price);
+
+-- 查询价格为800~1000之间的所有数据 (0.011)
+SELECT * FROM product WHERE price BETWEEN 800 AND 1000;
+
+-- 查询价格为800~1000之间的所有数据,降序排列  (0.001)
+SELECT * FROM product WHERE price BETWEEN 800 AND 1000 ORDER BY price DESC;
+```
+
+
 
 ###  03锁
 
+#### InnoDB锁的数据准备
+
+```
+-- 创建db13数据库
+CREATE DATABASE db13;
+
+-- 使用db13数据库
+USE db13;
+
+-- 创建student表
+CREATE TABLE student(
+	id INT PRIMARY KEY AUTO_INCREMENT,
+	NAME VARCHAR(10),
+	age INT,
+	score INT
+);
+-- 添加数据
+INSERT INTO student VALUES (NULL,'张三',23,99),(NULL,'李四',24,95),
+(NULL,'王五',25,98),(NULL,'赵六',26,97);
+```
+
+#### InnoDB共享锁_窗口1
+
+```
+-- 窗口1
+/*
+	共享锁：数据可以被多个事务查询，但是不能修改
+	创建锁的格式
+		SELECT语句 LOCK IN SHARE MODE;
+*/
+-- 开启事务
+START TRANSACTION;
+
+-- 查询id为1的数据记录。并且加入共享锁
+SELECT * FROM student WHERE id=1 LOCK IN SHARE MODE;
+
+-- 查询分数为99的数据记录。并且加入共享锁
+SELECT * FROM student WHERE score=99 LOCK IN SHARE MODE;
+
+-- 提交事务
+COMMIT;
+```
+
+
+
+#### InnoDB共享锁_窗口2
+
+```
+-- 开启事务
+START TRANSACTION;
+
+-- 查询id为1的数据记录。(普通查询没问题)
+SELECT * FROM student WHERE id=1;
+
+-- 查询id为1的数据记录。并且加入共享锁(共享锁和共享锁是兼容的)
+SELECT * FROM student WHERE id=1 LOCK IN SHARE MODE;
+
+-- 修改id为1的数据。修改姓名为张三三(修改失败，会出现锁的情况。只有窗口1提交事务后，才能修改成功)
+UPDATE student SET NAME='张三三' WHERE id=1;
+
+-- 修改id为2的数据。修改姓名为李四四(修改成功。InnoDB引擎默认是行锁)
+UPDATE student SET NAME='李四四' WHERE id=2;
+
+-- 修改id为3的数据。修改姓名为王五五(注意：InnoDB引擎如果不采用带索引的列，则会提升为表锁)
+UPDATE student SET NAME='王五五' WHERE id=3;
+
+-- 提交事务
+COMMIT;
+```
+
+
+
+#### InnoDB排他锁_窗口1
+
+```
+-- 窗口1
+/*
+	排他锁：加锁的数据，不能被其他事务加锁查询或修改
+	排他锁创建格式
+		SELECT语句 FOR UPDATE;
+*/
+-- 开启事务
+START TRANSACTION;
+
+-- 查询id为1的数据记录。并且加入排他锁
+SELECT * FROM student WHERE id=1 FOR UPDATE;
+
+-- 提交事务
+COMMIT;
+```
+
+
+
+#### InnoDB排他锁_窗口2
+
+```
+-- 开启事务
+START TRANSACTION;
+
+-- 查询id为1的数据记录。(普通查询没问题)
+SELECT * FROM student WHERE id=1;
+
+-- 查询id为1的数据记录。并且加入共享锁(排他锁不能和共享锁共存)
+SELECT * FROM student WHERE id=1 LOCK IN SHARE MODE;
+
+-- 查询id为1的数据记录。并且加入排他锁(排他锁和排他锁不能共存)
+SELECT * FROM student WHERE id=1 FOR UPDATE;
+
+-- 修改id为1的数据。将姓名修改为张三三(不能修改。会出现锁的情况。只有窗口1提交事务后，才能修改成功)
+UPDATE student SET NAME='张三三' WHERE id=1;
+
+-- 提交事务
+COMMIT;
+```
+
+
+
+#### MYISAM锁的数据准备
+
+```
+-- 创建product表
+CREATE TABLE product(
+	id INT PRIMARY KEY AUTO_INCREMENT,
+	NAME VARCHAR(20),
+	price INT
+)ENGINE = MYISAM;  -- 指定存储引擎为MyISAM
+
+-- 添加数据
+INSERT INTO product VALUES (NULL,'华为手机',4999),(NULL,'小米手机',2999),
+(NULL,'苹果',8999),(NULL,'中兴',1999);
+```
+
+
+
+#### MYISAM读锁_窗口1
+
+```
+/*
+	读锁：所有连接只能读取数据，不能修改
+	加锁
+		LOCK TABLE 表名 READ;
+
+    解锁(将当前会话所有的表进行解锁)
+    	UNLOCK TABLES;
+
+*/
+
+```
+
+-- 为product表添加读锁
+
+```
+LOCK TABLE product READ;
+```
+
+-- 查询product表(查询成功)
+
+```
+SELECT * FROM product;
+```
+
+-- 将id为1的价格修改为5999(不能修改)
+
+```
+UPDATE product SET price=5999 WHERE id=1;
+```
+
+-- 解锁
+
+```
+UNLOCK TABLES;
+```
+
+
+
+#### MYISAM读锁_窗口2
+
+```
+-- 查询product表(查询成功)
+SELECT * FROM product;
+
+-- 将id为1的价格修改为5999(不能修改。只有窗口1解锁后才能修改成功)
+UPDATE product SET price=5999 WHERE id=1;
+```
+
+
+
+#### MYISAM写锁_窗口1
+
+```
+/*
+	写锁：其他连接不能查询和修改数据
+	加锁
+		LOCK TABLE 表名 WRITE;
+
+	解锁(将当前会话所有的表进行解锁)
+		UNLOCK TABLES;
+*/
+-- 为product表添加写锁
+LOCK TABLE product WRITE;
+
+-- 查询product表(查询成功)
+SELECT * FROM product;
+
+-- 修改id为2的价格为3999(修改成功)
+UPDATE product SET price=3999 WHERE id=2;
+
+-- 解锁
+UNLOCK TABLES;
+```
+
+
+
+#### MYISAM写锁_窗口2
+
+```
+-- 查询product表（查询失败。只有窗口1解锁后，才能查询成功）
+SELECT * FROM product;
+
+-- 修改id为2的价格为1999(修改失败。只有窗口1解锁后，才能修改成功)
+UPDATE product SET price=1999 WHERE id=2;
+```
+
+
+
+#### 乐观锁
+
+```
+-- 创建city表
+CREATE TABLE city(
+	id INT PRIMARY KEY AUTO_INCREMENT,  -- 城市id
+	NAME VARCHAR(20),                   -- 城市名称
+	VERSION INT                         -- 版本号
+);
+
+-- 添加数据
+INSERT INTO city VALUES (NULL,'北京',1),(NULL,'上海',1),(NULL,'广州',1),(NULL,'深圳',1);
+
+
+-- 将北京修改为北京市
+-- 1.将北京的版本号读取出来
+SELECT VERSION FROM city WHERE NAME='北京';   -- 1
+-- 2.修改北京为北京市，版本号+1.并对比版本号是否相同
+UPDATE city SET NAME='北京市',VERSION=VERSION+1 WHERE NAME='北京' AND VERSION=1;
+```
+
+
+
 ###  04主从复制
 
+#### 主从复制_主服务器操作
+
+```
+-- 主服务器创建db1数据库,从服务器会自动同步
+CREATE DATABASE db1;
+```
+
+
+
+#### 主从复制_从服务器操作
+
+```
+-- 从服务器创建db2数据库,主服务器不会自动同步
+CREATE DATABASE db2;
+```
+
+
+
 ###  05读写分离
+
+#### 读写分离_mycat操作
+
+```
+-- 创建学生表
+CREATE TABLE student(
+	id INT PRIMARY KEY AUTO_INCREMENT,
+	NAME VARCHAR(10)
+);
+-- 查询学生表
+SELECT * FROM student;
+
+-- 添加两条记录
+INSERT INTO student VALUES (NULL,'张三'),(NULL,'李四');
+
+-- 停止主从复制后，添加的数据只会保存到主服务器上。
+INSERT INTO student VALUES (NULL,'王五');
+```
+
+
+
+#### 读写分离_主服务器操作
+
+```
+-- 主服务器：查询学生表，可以看到数据
+SELECT * FROM student;
+```
+
+
+
+#### 读写分离_从服务器操作
+
+```
+-- 从服务器：查询学生表，可以看到数据(因为有主从复制)
+SELECT * FROM student;
+
+-- 从服务器：删除一条记录。(主服务器并没有删除，mycat中间件查询的结果是从服务器的数据)
+DELETE FROM student WHERE id=2;
+```
+
+
+
 ###  06水平拆分
+
+#### 水平拆分_mycat操作
+
+```
+-- 创建product表
+CREATE TABLE product(
+	id INT PRIMARY KEY AUTO_INCREMENT,
+	NAME VARCHAR(20),
+	price INT
+);
+
+-- 添加6条数据
+INSERT INTO product(id,NAME,price) VALUES (NEXT VALUE FOR MYCATSEQ_GLOBAL,'苹果手机',6999);
+INSERT INTO product(id,NAME,price) VALUES (NEXT VALUE FOR MYCATSEQ_GLOBAL,'华为手机',5999); 
+INSERT INTO product(id,NAME,price) VALUES (NEXT VALUE FOR MYCATSEQ_GLOBAL,'三星手机',4999); 
+INSERT INTO product(id,NAME,price) VALUES (NEXT VALUE FOR MYCATSEQ_GLOBAL,'小米手机',3999); 
+INSERT INTO product(id,NAME,price) VALUES (NEXT VALUE FOR MYCATSEQ_GLOBAL,'中兴手机',2999); 
+INSERT INTO product(id,NAME,price) VALUES (NEXT VALUE FOR MYCATSEQ_GLOBAL,'OOPO手机',1999); 
+
+-- 查询product表
+SELECT * FROM product; 
+```
+
+
+
+#### 水平拆分_主服务器操作
+
+```
+-- 在不同数据库中查询product表
+SELECT * FROM product;
+```
+
+
+
+#### 水平拆分_从服务器操作
+
+```
+-- 在不同数据库中查询product表
+SELECT * FROM product;
+```
+
+
+
 ###  07垂直拆分
+
+#### 垂直拆分_mycat操作
+
+```
+-- 创建dog表
+CREATE TABLE dog(
+	id INT PRIMARY KEY AUTO_INCREMENT,
+	NAME VARCHAR(10)
+);
+-- 添加数据
+INSERT INTO dog(id,NAME) VALUES (NEXT VALUE FOR MYCATSEQ_GLOBAL,'哈士奇');
+-- 查询dog表
+SELECT * FROM dog;
+
+
+-- 创建cat表
+CREATE TABLE cat(
+	id INT PRIMARY KEY AUTO_INCREMENT,
+	NAME VARCHAR(10)
+);
+-- 添加数据
+INSERT INTO cat(id,NAME) VALUES (NEXT VALUE FOR MYCATSEQ_GLOBAL,'波斯猫');
+-- 查询cat表
+SELECT * FROM cat;
+
+
+
+
+
+-- 创建apple表
+CREATE TABLE apple(
+	id INT PRIMARY KEY AUTO_INCREMENT,
+	NAME VARCHAR(10)
+);
+-- 添加数据
+INSERT INTO apple(id,NAME) VALUES (NEXT VALUE FOR MYCATSEQ_GLOBAL,'红富士');
+-- 查询apple表
+SELECT * FROM apple;
+
+
+-- 创建banana表
+CREATE TABLE banana(
+	id INT PRIMARY KEY AUTO_INCREMENT,
+	NAME VARCHAR(10)
+);
+-- 添加数据
+INSERT INTO banana(id,NAME) VALUES (NEXT VALUE FOR MYCATSEQ_GLOBAL,'香蕉');
+-- 查询banana表
+SELECT * FROM banana;
+```
+
+
+
+#### 垂直拆分_主服务器操作
+
+```
+-- 查询dog表
+SELECT * FROM dog;
+-- 查询cat表
+SELECT * FROM cat;
+
+
+-- 查询apple表
+SELECT * FROM apple;
+-- 查询banana表
+SELECT * FROM banana;
+```
+
+
+
+#### 垂直拆分_从服务器操作
+
+```
+-- 查询dog表
+SELECT * FROM dog;
+-- 查询cat表
+SELECT * FROM cat;
+
+
+-- 查询apple表
+SELECT * FROM apple;
+-- 查询banana表
+SELECT * FROM banana;
+```
 
