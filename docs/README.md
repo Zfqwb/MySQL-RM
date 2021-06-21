@@ -2694,91 +2694,167 @@ SET @@autocommit=0;
 
 ####  查询和修改事务的隔离级别
 
+```
 /*
 	事务的隔离级别
 		查询隔离级别：SELECT @@TX_ISOLATION;
 		修改隔离级别：SET GLOBAL TRANSACTION ISOLATION LEVEL 级别字符串;
 */
+```
+
 -- 查询事务隔离级别
+
+```
 SELECT @@tx_isolation;
+```
 
 -- 修改事务隔离级别
+
+```
 SET GLOBAL TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+```
+
+
 
 ####  脏读的问题演示和解决_窗口1
 
+```
 /*
 	脏读的问题演示和解决
 	脏读：一个事务中读取到了其他事务未提交的数据
 */
+```
+
 -- 设置事务隔离级别为read uncommitted
+
+```
 SET GLOBAL TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 SET GLOBAL TRANSACTION ISOLATION LEVEL READ COMMITTED;
+```
 
 -- 开启事务
+
+```
 START TRANSACTION;
+```
 
 -- 转账
+
+```
 UPDATE account SET money = money-500 WHERE NAME='张三';
 UPDATE account SET money = money+500 WHERE NAME='李四';
+```
 
 -- 查询account表
+
+```
 SELECT * FROM account;
+```
 
 -- 回滚
+
+```
 ROLLBACK;
+```
+
+
 
 ####  脏读的问题演示和解决_窗口2
 
 -- 查询事务隔离级别
+
+```
 SELECT @@tx_isolation;
+```
 
 -- 开启事务
+
+```
 START TRANSACTION;
+```
 
 -- 查询account表
+
+```
 SELECT * FROM account;
+```
+
+
 
 ####  不可重复读的问题演示和解决_窗口1
 
+```
 /*
 	不可重复读的问题演示和解决
 	不可重复读：一个事务中读取到了其他事务已提交的数据
 */
+```
+
 -- 设置事务隔离级别为read committed
+
+```
 SET GLOBAL TRANSACTION ISOLATION LEVEL READ COMMITTED;
 SET GLOBAL TRANSACTION ISOLATION LEVEL REPEATABLE READ;
-
+```
 
 -- 开启事务
+
+```
 START TRANSACTION;
+```
 
 -- 转账
+
+```
 UPDATE account SET money = money-500 WHERE NAME='张三';
 UPDATE account SET money = money+500 WHERE NAME='李四';
+```
 
 -- 查询account表
+
+```
 SELECT * FROM account;
+```
 
 -- 提交事务
+
+```
 COMMIT;
+```
+
+
 
 ####  不可重复读的问题演示和解决_窗口2
 
 -- 查询隔离级别
+
+```
 SELECT @@tx_isolation;
+```
 
 -- 开启事务
+
+```
 START TRANSACTION;
+```
 
 -- 查询account表
+
+```
 SELECT * FROM account;
+```
 
 -- 提交事务
+
+```
 COMMIT;
+```
+
+
 
 ####  幻读的问题演示和解决_窗口1
 
+```
 /*
 	幻读的问题演示和解决
 	幻读：
@@ -2786,35 +2862,68 @@ COMMIT;
 	准备插入此记录，但执行插入时发现此记录已存在，无法插入
 	或某记录不存在执行删除，却发现删除成功
 */
+```
+
 -- 设置隔离级别为repeatable read
+
+```
 SET GLOBAL TRANSACTION ISOLATION LEVEL REPEATABLE READ;
 SET GLOBAL TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+```
 
 -- 开启事务
+
+```
 START TRANSACTION;
+```
 
 -- 添加记录
+
+```
 INSERT INTO account VALUES (4,'赵六',2000);
+```
 
 -- 查询account表
+
+```
 SELECT * FROM account;
+```
 
 -- 提交事务
+
+```
 COMMIT;
+```
+
+
 
 ####  幻读的问题演示和解决_窗口2
 
 -- 查询隔离级别
+
+```
 SELECT @@tx_isolation;
+```
 
 -- 开启事务
+
+```
 START TRANSACTION;
+```
 
 -- 查询account表
+
+```
 SELECT * FROM account;
+```
 
 -- 添加
+
+```
 INSERT INTO account VALUES (3,'王五',2000);
+```
+
+
 
 ## day04
 
